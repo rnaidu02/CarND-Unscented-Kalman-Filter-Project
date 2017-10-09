@@ -24,6 +24,9 @@ public:
   */
   VectorXd CalculateRMSE(const vector<VectorXd> &estimations, const vector<VectorXd> &ground_truth);
 
+  // Helper funxtion to set min values
+	float SetMinValues(float in);
+
 };
 
 #endif /* TOOLS_H_ */
