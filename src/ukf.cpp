@@ -192,11 +192,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
     // Radar updates
-
+    UpdateRadar(meas_package);
 
   } else {
     // Laser updates
-
+    UpdateLidar(meas_package);
   }
 
 }
@@ -335,6 +335,122 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+  int n_z = 3;
+  //create matrix for sigma points in measurement space
+  MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
+
+  //mean predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
+
+  //measurement covariance matrix S
+  MatrixXd S = MatrixXd(n_z, n_z);
+
+  //transform sigma points into measurement space
+  VectorXd x_sigma_pred_slice = VectorXd(n_x_);
+  Zsig(0.0);
+  for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
+      x_sigma_pred_slice = Xsig_pred_.col(nSigmaIndex);
+      float p_x = x_sigma_pred_slice[0];
+      float p_y = x_sigma_pred_slice[1];
+      float vel = x_sigma_pred_slice[2];
+
+      Zsig(0, nSigmaIndex) = p_x;
+      Zsig(1, nSigmaIndex) = p_y;
+      Zsig(2, nSigmaIndex) = vel;
+
+      z_pred = z_pred+weights_(nSigmaIndex)*Zsig.col(nSigmaIndex);
+
+  }
+  //calculate mean predicted measurement
+  //calculate measurement covariance matrix S
+  //measurement covariance matrix R
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R(0.0);
+  R(0, 0) = std_laspx_ * std_laspx_;
+  R(1, 1) = std_laspy_ * std_laspy_;
+
+
+  //Traverse thru predicted data in measurement space and find
+  //the diff between the measured and mean to find co-variance matrix
+  S(0.0);
+  VectorXd z_sigma_pred_slice = VectorXd(n_z);
+  for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
+      z_sigma_pred_slice = Zsig.col(nSigmaIndex) - z_pred;
+
+/*
+    //angle normalization;
+    //MAke sure the phi is within -PI to PI
+    while((z_sigma_pred_slice(1) > M_PI) || (z_sigma_pred_slice(1) < -1*M_PI))
+	  {
+  		if (z_sigma_pred_slice(1) > M_PI){
+  			z_sigma_pred_slice(1) -= 2*M_PI;
+  		} else if (z_sigma_pred_slice(1) < -1*M_PI){
+  			z_sigma_pred_slice(1) += 2*M_PI;
+  		}
+	  }
+      //while (z_sigma_pred_slice(1)> M_PI) z_sigma_pred_slice(1)-=2.*M_PI;
+      //while (z_sigma_pred_slice(1)<-M_PI) z_sigma_pred_slice(1)+=2.*M_PI;
+      */
+      S = S + weights_(nSigmaIndex)*z_sigma_pred_slice*z_sigma_pred_slice.transpose();
+  }
+  S = S + R;
+
+  //create matrix for cross correlation Tc
+  MatrixXd Tc = MatrixXd(n_x_, n_z);
+  VectorXd z = meas_package.raw_measurements_;
+
+  Tc.fill(0.0);
+  //calculate cross correlation matrix
+  VectorXd x_slice; // = VectorXd(n_x);
+  VectorXd z_slice; // = VectorXd(n_z);
+  for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
+      VectorXd x_slice = Xsig_pred_.col(nSigmaIndex) - x_;
+      VectorXd z_slice = Zsig.col(nSigmaIndex) - z_pred;
+
+/*
+    //MAke sure the phi is within -PI to PI
+    while((z_slice(1) > M_PI) || (z_slice(1) < -1.0*M_PI))
+	  {
+		if (z_slice(1) > M_PI){
+			z_slice(1) -= 2.0*M_PI;
+		} else if (z_slice(1) < -1*M_PI){
+			z_slice(1) += 2.0*M_PI;
+		}
+	  }
+
+	  //MAke sure the phi is within -PI to PI
+    while((x_slice(3) > M_PI) || (x_slice(3) < -1.0*M_PI))
+	  {
+		if (x_slice(3) > M_PI){
+			x_slice(3) -= 2.0*M_PI;
+		} else if (x_slice(3) < -1.0*M_PI){
+			x_slice(3) += 2.0*M_PI;
+		}
+	  }
+*/
+	  Tc = Tc + weights_(nSigmaIndex)*x_slice*z_slice.transpose();
+
+  }
+  //calculate Kalman gain K;
+  MatrixXd K = Tc*S.inverse();
+  //update state mean and covariance matrix
+  VectorXd z_diff = z-z_pred;
+  //Make sure the phi is within -PI to PI
+
+  while((z_diff(1) > M_PI) || (z_diff(1) < -1.0*M_PI))
+  {
+	if (z_diff(1) > M_PI){
+		z_diff(1) -= 2.0*M_PI;
+	} else if (z_diff(1) < -1.0*M_PI){
+		z_diff(1) += 2.0*M_PI;
+	}
+  }
+
+  //Update the state (x)
+  x_ = x_ + K*z_diff;
+
+  //Update Covariance martix P
+  P_ = P_ - K*S*K.transpose();
 }
 
 /**
@@ -398,15 +514,15 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
       z_sigma_pred_slice = Zsig.col(nSigmaIndex) - z_pred;
 
-      //angle normalization;
-      //MAke sure the phi is within -PI to PI
-      while((z_sigma_pred_slice(1) > M_PI) || (z_sigma_pred_slice(1) < -1*M_PI))
+    //angle normalization;
+    //MAke sure the phi is within -PI to PI
+    while((z_sigma_pred_slice(1) > M_PI) || (z_sigma_pred_slice(1) < -1*M_PI))
 	  {
-		if (z_sigma_pred_slice(1) > M_PI){
-			z_sigma_pred_slice(1) -= 2*M_PI;
-		} else if (z_sigma_pred_slice(1) < -1*M_PI){
-			z_sigma_pred_slice(1) += 2*M_PI;
-		}
+  		if (z_sigma_pred_slice(1) > M_PI){
+  			z_sigma_pred_slice(1) -= 2*M_PI;
+  		} else if (z_sigma_pred_slice(1) < -1*M_PI){
+  			z_sigma_pred_slice(1) += 2*M_PI;
+  		}
 	  }
       //while (z_sigma_pred_slice(1)> M_PI) z_sigma_pred_slice(1)-=2.*M_PI;
       //while (z_sigma_pred_slice(1)<-M_PI) z_sigma_pred_slice(1)+=2.*M_PI;
@@ -438,7 +554,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 	  }
 
 	  //MAke sure the phi is within -PI to PI
-      while((x_slice(3) > M_PI) || (x_slice(3) < -1.0*M_PI))
+    while((x_slice(3) > M_PI) || (x_slice(3) < -1.0*M_PI))
 	  {
 		if (x_slice(3) > M_PI){
 			x_slice(3) -= 2.0*M_PI;
