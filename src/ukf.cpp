@@ -66,8 +66,12 @@ UKF::UKF() {
   //Re set the process noise std values
   //Since the moving vehicle is bi-cycle,
   //the longitudinal acceleration is going to be much less than 30 m/s^2
-  std_a_ = 2.0;
-  std_yawdd_ = 1.0;
+  std_a_ = 0.5;
+  std_yawdd_ = 0.25;
+
+  //NIS values
+  NIS_Lidar = 0.0;
+  NIS_Radar = 0.0;
 
   //set vector for weights
   weights_ = VectorXd(2*n_aug_+1);
@@ -150,7 +154,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       float VSV = 0.01;
       if (fabs(pX) < VSV) pX = VSV;
       if (fabs(pY) < VSV) pY = VSV;
-      
+
 			v = psi = psi_dot = 0;
 			//ekf_.x_ << , measurement_pack.raw_measurements_[1], 0, 0;
 
@@ -330,10 +334,10 @@ void UKF::Prediction(double delta_t) {
       //traverse thru each column in Xsig_pred and multiply with the weights vector
       VectorXd x_slice = Xsig_pred_.col(nIndex) - x_;
 
-      cout << "     before angle norm in predict" << endl;
+      cout << "     before angle norm in predict" << Xsig_pred_.col(nIndex) << endl;
       //angle normalization;
       //MAke sure the phi is within -PI to PI
-      /*
+
       while((x_slice(3) > M_PI) || (x_slice(3) < -1*M_PI))
   	  {
     		if (x_slice(3) > M_PI){
@@ -342,9 +346,11 @@ void UKF::Prediction(double delta_t) {
     			x_slice(3) += 2*M_PI;
     		}
   	  }
-      */
+
       while (x_slice(3) > M_PI) x_slice(3) -=2.*M_PI;
       while (x_slice(3) <-M_PI) x_slice(3) +=2.*M_PI;
+
+      cout << "     after angle norm in predict" << x_slice << endl;
 
       P_ = P_ + weights_(nIndex)*x_slice*x_slice.transpose();
 
@@ -399,7 +405,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //calculate measurement covariance matrix S
   //measurement covariance matrix R
   MatrixXd R = MatrixXd(n_z, n_z);
-  R(0.0);
+  R.fill(0.0);
   R(0, 0) = std_laspx_ * std_laspx_;
   R(1, 1) = std_laspy_ * std_laspy_;
 
@@ -411,7 +417,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
       VectorXd z_sigma_pred_slice = Zsig.col(nSigmaIndex) - z_pred;
 
-/*
+
     //angle normalization;
     //MAke sure the phi is within -PI to PI
     while((z_sigma_pred_slice(1) > M_PI) || (z_sigma_pred_slice(1) < -1*M_PI))
@@ -422,9 +428,10 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   			z_sigma_pred_slice(1) += 2*M_PI;
   		}
 	  }
+
       //while (z_sigma_pred_slice(1)> M_PI) z_sigma_pred_slice(1)-=2.*M_PI;
       //while (z_sigma_pred_slice(1)<-M_PI) z_sigma_pred_slice(1)+=2.*M_PI;
-      */
+
       S = S + weights_(nSigmaIndex)*z_sigma_pred_slice*z_sigma_pred_slice.transpose();
   }
   S = S + R;
@@ -488,6 +495,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //Update Covariance martix P
   P_ = P_ - K*S*K.transpose();
 
+  //Update NIS value
+  NIS_Lidar = z_diff.transpose()*S.inverse()*z_diff;
+
   cout << "end of update for Lidar" << endl;
 }
 
@@ -541,7 +551,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //calculate measurement covariance matrix S
   //measurement covariance matrix R
   MatrixXd R = MatrixXd(n_z, n_z);
-  R(0.0);
+  R.fill(0.0);
   R(0, 0) = std_radr_ * std_radr_;
   R(1, 1) = std_radphi_ * std_radphi_;
   R(2, 2) = std_radrd_ * std_radrd_;
@@ -625,6 +635,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   //Update Covariance martix P
   P_ = P_ - K*S*K.transpose();
+
+  //Update NIS value
+  NIS_Radar = z_diff.transpose()*S.inverse()*z_diff;
 
   cout << "end of update for Radar" << endl;
 }

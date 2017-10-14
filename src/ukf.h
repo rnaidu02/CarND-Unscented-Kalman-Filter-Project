@@ -70,6 +70,10 @@ public:
   //Record Prev timestamp
   long long previous_timestamp_;
 
+  //NIS values
+  double NIS_Lidar;
+  double NIS_Radar;
+
 
   /**
    * Constructor
