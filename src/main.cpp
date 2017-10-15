@@ -33,6 +33,8 @@ int main()
   // Create a Kalman Filter instance
   UKF ukf;
 
+
+
   // used to compute the RMSE later
   Tools tools;
   vector<VectorXd> estimations;
@@ -108,6 +110,8 @@ int main()
           //Call ProcessMeasurment(meas_package) for Kalman filter
     	  ukf.ProcessMeasurement(meas_package);
         cout << "After ProcessMeasurement" << endl;
+
+
     	  //Push the current estimated x,y positon from the Kalman filter's state vector
 
     	  VectorXd estimate(4);
@@ -162,6 +166,8 @@ int main()
     {
       // i guess this should be done more gracefully?
       res->end(nullptr, 0);
+
+
     }
   });
 

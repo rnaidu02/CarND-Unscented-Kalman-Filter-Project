@@ -15,5 +15,5 @@ public:
   Eigen::VectorXd raw_measurements_;
 
 };
-
+const float VSV = 0.001;
 #endif /* MEASUREMENT_PACKAGE_H_ */

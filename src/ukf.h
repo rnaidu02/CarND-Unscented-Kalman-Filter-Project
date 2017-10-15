@@ -3,12 +3,15 @@
 
 #include "measurement_package.h"
 #include "Eigen/Dense"
+#include "tools.h"
 #include <vector>
 #include <string>
+#include <iostream>
 #include <fstream>
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
+using namespace std;
 
 class UKF {
 public:
@@ -71,9 +74,13 @@ public:
   long long previous_timestamp_;
 
   //NIS values
-  double NIS_Lidar;
-  double NIS_Radar;
+  double NIS_Lidar_;
+  double NIS_Radar_;
 
+  //Open two files to dump NIS data
+  ofstream fRadar_, fLaser_;
+
+  Tools tools;
 
   /**
    * Constructor

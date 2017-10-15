@@ -61,17 +61,17 @@ UKF::UKF() {
   //n_z_ = 3;
 
   //define spreading parameter
-  lambda_ = 3 - n_aug_;
+  lambda_ = 3.0 - n_aug_;
 
   //Re set the process noise std values
   //Since the moving vehicle is bi-cycle,
   //the longitudinal acceleration is going to be much less than 30 m/s^2
-  std_a_ = 0.5;
-  std_yawdd_ = 0.25;
+  std_a_ = 1.0;
+  std_yawdd_ = 0.5;
 
   //NIS values
-  NIS_Lidar = 0.0;
-  NIS_Radar = 0.0;
+  NIS_Lidar_ = 0.0;
+  NIS_Radar_ = 0.0;
 
   //set vector for weights
   weights_ = VectorXd(2*n_aug_+1);
@@ -84,15 +84,29 @@ UKF::UKF() {
 
   //Initialize the P covariance vector
   P_ = MatrixXd::Identity(n_x_, n_x_);
+  cout << P_;
+
+  //Update with differnt values at (0,0) and (1,1) as mentioned in Lesson 7.32
+  P_(0,0) = 0.15;
+  P_(1,1) = 0.15;
+  //P_(2,2) = 0.15;
 
   //Initialize input vector x_
   x_ = VectorXd(n_x_);
 
   //Init sigma point matrix
   Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
+
+//Open the files for writing
+  fRadar_.open("radar_nis.csv");
+  fLaser_.open("laser_nis.csv");
 }
 
-UKF::~UKF() {}
+UKF::~UKF() {
+  //Close the files
+  fRadar_.close();
+  fLaser_.close();
+}
 
 /**
  * @param {MeasurementPackage} meas_package The latest measurement data of
@@ -151,7 +165,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 			pX = meas_package.raw_measurements_[0];
 			pY = meas_package.raw_measurements_[1];
 
-      float VSV = 0.01;
+      float VSV = 0.001;
       if (fabs(pX) < VSV) pX = VSV;
       if (fabs(pY) < VSV) pY = VSV;
 
@@ -200,11 +214,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
      * Update the state and covariance matrices.
    */
 
-  if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+  if ((meas_package.sensor_type_ == MeasurementPackage::RADAR) && (use_radar_)) {
     // Radar updates
     UpdateRadar(meas_package);
 
-  } else {
+  } else if ((meas_package.sensor_type_ == MeasurementPackage::LASER) && (use_laser_)) {
     // Laser updates
     UpdateLidar(meas_package);
   }
@@ -223,7 +237,7 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
-  cout << "begining of update for Predict" << endl;
+  //cout << "begining of update for Predict" << endl;
 
   //create sigma point matrix
   MatrixXd Xsig = MatrixXd(n_x_, 2 * n_x_ + 1);
@@ -300,7 +314,7 @@ void UKF::Prediction(double delta_t) {
 
       //
       //if Xsig_aug[4] != 0  (i.e yawdot)
-      if (yaw_dot != 0.0){
+      if (yaw_dot > VSV){
          x_kplus[0] = x_kplus[0] + (vel/yaw_dot)*((sin(yaw+yaw_dot*delta_t))-sin(yaw)) ;
          x_kplus[1] = x_kplus[1] + (vel/yaw_dot)*((-cos(yaw+yaw_dot*delta_t))+cos(yaw)) ;
 
@@ -334,29 +348,21 @@ void UKF::Prediction(double delta_t) {
       //traverse thru each column in Xsig_pred and multiply with the weights vector
       VectorXd x_slice = Xsig_pred_.col(nIndex) - x_;
 
-      cout << "     before angle norm in predict" << Xsig_pred_.col(nIndex) << endl;
+      //cout << "     before angle norm in predict" << Xsig_pred_.col(nIndex) << endl;
       //angle normalization;
       //MAke sure the phi is within -PI to PI
-
-      while((x_slice(3) > M_PI) || (x_slice(3) < -1*M_PI))
-  	  {
-    		if (x_slice(3) > M_PI){
-    			x_slice(3) -= 2*M_PI;
-    		} else if (x_slice(3) < -1*M_PI){
-    			x_slice(3) += 2*M_PI;
-    		}
-  	  }
 
       while (x_slice(3) > M_PI) x_slice(3) -=2.*M_PI;
       while (x_slice(3) <-M_PI) x_slice(3) +=2.*M_PI;
 
-      cout << "     after angle norm in predict" << x_slice << endl;
+      //cout << "     after angle norm in predict" << x_slice << endl;
 
       P_ = P_ + weights_(nIndex)*x_slice*x_slice.transpose();
 
     }
 
     cout << "end of update for Predict" << endl;
+    cout << "P_" << P_ << endl;
 
 
 }
@@ -496,9 +502,22 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   P_ = P_ - K*S*K.transpose();
 
   //Update NIS value
-  NIS_Lidar = z_diff.transpose()*S.inverse()*z_diff;
+  NIS_Lidar_ = z_diff.transpose()*S.inverse()*z_diff;
 
-  cout << "end of update for Lidar" << endl;
+  //Dump NIS values to a files
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    if (fLaser_.is_open()) {
+      fLaser_ << NIS_Lidar_ << "\n";
+      fLaser_.flush();
+    }
+  } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    if (fRadar_.is_open()) {
+      fRadar_ << NIS_Radar_ << "\n";
+      fRadar_.flush();
+    }
+  }
+
+  cout << "end of update for Lidar" << P_ << endl;
 }
 
 /**
@@ -536,9 +555,16 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
       float psi = x_sigma_pred_slice[3];
       float psi_dot = x_sigma_pred_slice[4];
 
+      //If px, py is less that 0.01 (min value), set it to 0.01
+      //p_x = tools.SetMinValues(p_x);
+  		//p_y = tools.SetMinValues(p_y);
+      float VSV = 0.001;
+      if (fabs(p_x) < VSV) p_x = VSV;
+      if (fabs(p_y) < VSV) p_y = VSV;
+
       float rho = sqrt(p_x*p_x+p_y*p_y);
-      float phi = atan(p_y/p_x);
-      float rho_dot = vel*(p_x*cos(psi)+p_y*sin(psi))/rho;
+      float phi = atan2(p_y, p_x);
+      float rho_dot = (vel*(p_x*cos(psi)+p_y*sin(psi)))/rho;
 
       Zsig(0, nSigmaIndex) = rho;
       Zsig(1, nSigmaIndex) = phi;
@@ -594,13 +620,13 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
       //MAke sure the phi is within -PI to PI
       while((z_slice(1) > M_PI) || (z_slice(1) < -1.0*M_PI))
-	  {
-		if (z_slice(1) > M_PI){
-			z_slice(1) -= 2.0*M_PI;
-		} else if (z_slice(1) < -1*M_PI){
-			z_slice(1) += 2.0*M_PI;
-		}
-	  }
+  	  {
+  		if (z_slice(1) > M_PI){
+  			z_slice(1) -= 2.0*M_PI;
+  		} else if (z_slice(1) < -1*M_PI){
+  			z_slice(1) += 2.0*M_PI;
+  		}
+  	  }
 
 	  //MAke sure the phi is within -PI to PI
     while((x_slice(3) > M_PI) || (x_slice(3) < -1.0*M_PI))
@@ -637,7 +663,22 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   P_ = P_ - K*S*K.transpose();
 
   //Update NIS value
-  NIS_Radar = z_diff.transpose()*S.inverse()*z_diff;
+  NIS_Radar_ = z_diff.transpose()*S.inverse()*z_diff;
 
-  cout << "end of update for Radar" << endl;
+  //Dump NIS values to a files
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    //if (fLaser_.is_open()) {
+
+      fLaser_ << NIS_Lidar_ << "\n";
+      fLaser_.flush();
+    //}
+  } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    //if (fRadar_.is_open()) {
+      cout << "Inside NIS Radar" << endl;
+      fRadar_ << NIS_Radar_ << "\n";
+      fRadar_.flush();
+    //}
+  }
+
+  cout << "end of update for Radar" << P_ << endl;
 }

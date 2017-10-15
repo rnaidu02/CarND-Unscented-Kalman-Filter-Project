@@ -6,7 +6,7 @@ using Eigen::MatrixXd;
 using std::vector;
 
 const float MIN_VALUE = 0.001;
-const float LEAST_VALUE = 0.1;
+const float LEAST_VALUE = 0.001;
 
 Tools::Tools() {}
 
