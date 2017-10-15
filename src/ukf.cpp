@@ -82,14 +82,22 @@ UKF::UKF() {
     weights_(i) = weight;
   }
 
+  cout << "weights" << weights_ << endl;
+
   //Initialize the P covariance vector
-  P_ = MatrixXd::Identity(n_x_, n_x_);
+  //Never do the sort cuts. Using Identity matrix caused 3 days of debugging
+  //Because it inits with int values  :(
+  //P_ = MatrixXd::Identity(n_x_, n_x_);
+  //Update with differnt values at (0,0) and (1,1) as mentioned in Lesson 7.32
+  P_ << 0.15, 0.0, 0.0, 0.0, 0.0,
+        0.0, 0.15, 0.0, 0.0, 0.0,
+        0.15, 0.0, 1000, 0.0, 0.0,
+        0.15, 0.0, 0.0, 1000, 0.0,
+        0.15, 0.0, 0.0, 0.0, 0.0;
   cout << P_;
 
-  //Update with differnt values at (0,0) and (1,1) as mentioned in Lesson 7.32
-  P_(0,0) = 0.15;
-  P_(1,1) = 0.15;
-  //P_(2,2) = 0.15;
+
+
 
   //Initialize input vector x_
   x_ = VectorXd(n_x_);
@@ -153,7 +161,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 			//Set the velocity components to be 0, as deriving velocy from
 			//the first measurement may not be perfect
-			psi = psi_dot = 0;
+			psi = psi_dot = 0.0;
 
 
     }
@@ -169,7 +177,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       if (fabs(pX) < VSV) pX = VSV;
       if (fabs(pY) < VSV) pY = VSV;
 
-			v = psi = psi_dot = 0;
+			v = psi = psi_dot = 0.0;
 			//ekf_.x_ << , measurement_pack.raw_measurements_[1], 0, 0;
 
     }
