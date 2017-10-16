@@ -82,6 +82,7 @@ public:
 
   // Device co-variance matrix
   MatrixXd R_Laser_;
+  MatrixXd R_Radar_;
 
   Tools tools;
 
