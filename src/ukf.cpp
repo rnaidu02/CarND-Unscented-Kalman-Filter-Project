@@ -96,7 +96,12 @@ UKF::UKF() {
         0.0, 0.0, 0.0, 0.0, 0.0;
   cout << P_;
 
+  //measurement covariance matrix R
+  R_Laser_ = MatrixXd(2, 2);
+  R_Laser_.fill(0.0);
 
+  R_Laser_(0, 0) = std_laspx_ * std_laspx_;
+  R_Laser_(1, 1) = std_laspy_ * std_laspy_;
 
 
   //Initialize input vector x_
@@ -304,39 +309,41 @@ void UKF::Prediction(double delta_t) {
   //write predicted sigma points into right column
   for (int nColIndex = 0; nColIndex < n_aug_*2+1; nColIndex++){
       //Get each column from the augmented sigma points
-      VectorXd x_prev = Xsig_aug.col(nColIndex);
-      VectorXd x_kplus =  x_prev.head(n_x_);
-      //Take out the components from the vector
-      float vel = x_prev[2];
-      float yaw = x_prev[3];
-      float yaw_dot = x_prev[4];
-      float new_la = x_prev[5];
-      float new_yd = x_prev[6];
-      //Check for the second vector i.e varianve components
-      x_kplus[0] = x_kplus[0]+ 0.5*delta_t*delta_t*cos(yaw)*new_la;
-      x_kplus[1] = x_kplus[1]+ 0.5*delta_t*delta_t*sin(yaw)*new_la;
-      x_kplus[2] = x_kplus[2]+ delta_t*new_la;
-      x_kplus[3] = x_kplus[3] + 0.5*delta_t*delta_t*new_yd;
-      x_kplus[4] = x_kplus[4] + delta_t*new_yd;
-
+      //VectorXd x_prev = Xsig_aug.col(nColIndex);
+      //VectorXd x_kplus =  x_prev.head(n_x_);
+      //Take out the components from the Xsig_aug
+      float pX = Xsig_aug(0, nColIndex);
+      float pY = Xsig_aug(1, nColIndex);
+      float vel = Xsig_aug(2, nColIndex);
+      float yaw = Xsig_aug(3, nColIndex);
+      float yaw_dot = Xsig_aug(4, nColIndex);
+      float new_la = Xsig_aug(5, nColIndex);
+      float new_yd = Xsig_aug(6, nColIndex);
 
       //
       //if Xsig_aug[4] != 0  (i.e yawdot)
       if (yaw_dot > VSV){
-         x_kplus[0] = x_kplus[0] + (vel/yaw_dot)*((sin(yaw+yaw_dot*delta_t))-sin(yaw)) ;
-         x_kplus[1] = x_kplus[1] + (vel/yaw_dot)*((-cos(yaw+yaw_dot*delta_t))+cos(yaw)) ;
+         pX = pX + (vel/yaw_dot)*((sin(yaw+yaw_dot*delta_t))-sin(yaw)) ;
+         pY = pY + (vel/yaw_dot)*((-cos(yaw+yaw_dot*delta_t))+cos(yaw)) ;
 
       }else{
-         x_kplus[0] = x_kplus[0] + vel*cos(yaw)*delta_t;
-         x_kplus[1] = x_kplus[1] + vel*sin(yaw)*delta_t;
+         pX = pX + vel*cos(yaw)*delta_t;
+         pY = pY + vel*sin(yaw)*delta_t;
       }
 
-      x_kplus[2] = x_kplus[2] + 0;
-      x_kplus[3] = x_kplus[3] + yaw_dot*delta_t;
-      x_kplus[4] = x_kplus[4] + 0;
+      //Check for the second vector i.e varianve components
+      pX = pX + 0.5*delta_t*delta_t*cos(yaw)*new_la;
+      pY = pY + 0.5*delta_t*delta_t*sin(yaw)*new_la;
+      vel = vel + delta_t*new_la;
+      yaw = yaw + 0.5*delta_t*delta_t*new_yd + yaw_dot*delta_t;
+      yaw_dot = yaw_dot + delta_t*new_yd;
 
       //Now set the x_kplus into Xsig_pred vector
-      Xsig_pred_.col(nColIndex) = x_kplus;
+      Xsig_pred_(0, nColIndex) = pX;
+      Xsig_pred_(1, nColIndex) = pY;
+      Xsig_pred_(2, nColIndex) = vel;
+      Xsig_pred_(3, nColIndex) = yaw;
+      Xsig_pred_(4, nColIndex) = yaw_dot;
     }
 
     //Predict x mean and P covariance matrix
@@ -403,6 +410,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //transform sigma points into measurement space
   //VectorXd x_sigma_pred_slice = VectorXd(n_x_);
   Zsig.fill(0.0);
+  z_pred.fill(0.0);
   for (int nSigmaIndex = 0; nSigmaIndex <  2 * n_aug_ + 1; nSigmaIndex++){
       VectorXd x_sigma_pred_slice = Xsig_pred_.col(nSigmaIndex);
       float p_x = x_sigma_pred_slice[0];
@@ -410,18 +418,12 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
       Zsig(0, nSigmaIndex) = p_x;
       Zsig(1, nSigmaIndex) = p_y;
-      //Zsig(2, nSigmaIndex) = vel;
 
       z_pred = z_pred+weights_(nSigmaIndex)*Zsig.col(nSigmaIndex);
 
   }
   //calculate mean predicted measurement
   //calculate measurement covariance matrix S
-  //measurement covariance matrix R
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R.fill(0.0);
-  R(0, 0) = std_laspx_ * std_laspx_;
-  R(1, 1) = std_laspy_ * std_laspy_;
 
 
   //Traverse thru predicted data in measurement space and find
@@ -433,22 +435,13 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
 
     //angle normalization;
-    //MAke sure the phi is within -PI to PI
-    while((z_sigma_pred_slice(1) > M_PI) || (z_sigma_pred_slice(1) < -1*M_PI))
-	  {
-  		if (z_sigma_pred_slice(1) > M_PI){
-  			z_sigma_pred_slice(1) -= 2*M_PI;
-  		} else if (z_sigma_pred_slice(1) < -1*M_PI){
-  			z_sigma_pred_slice(1) += 2*M_PI;
-  		}
-	  }
 
       //while (z_sigma_pred_slice(1)> M_PI) z_sigma_pred_slice(1)-=2.*M_PI;
       //while (z_sigma_pred_slice(1)<-M_PI) z_sigma_pred_slice(1)+=2.*M_PI;
 
       S = S + weights_(nSigmaIndex)*z_sigma_pred_slice*z_sigma_pred_slice.transpose();
   }
-  S = S + R;
+  S = S + R_Laser_;
 
   //create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z);
@@ -462,27 +455,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
       VectorXd x_slice = Xsig_pred_.col(nSigmaIndex) - x_;
       VectorXd z_slice = Zsig.col(nSigmaIndex) - z_pred;
 
-/*
-    //MAke sure the phi is within -PI to PI
-    while((z_slice(1) > M_PI) || (z_slice(1) < -1.0*M_PI))
-	  {
-		if (z_slice(1) > M_PI){
-			z_slice(1) -= 2.0*M_PI;
-		} else if (z_slice(1) < -1*M_PI){
-			z_slice(1) += 2.0*M_PI;
-		}
-	  }
-
-	  //MAke sure the phi is within -PI to PI
-    while((x_slice(3) > M_PI) || (x_slice(3) < -1.0*M_PI))
-	  {
-		if (x_slice(3) > M_PI){
-			x_slice(3) -= 2.0*M_PI;
-		} else if (x_slice(3) < -1.0*M_PI){
-			x_slice(3) += 2.0*M_PI;
-		}
-	  }
-*/
 	  Tc = Tc + weights_(nSigmaIndex)*x_slice*z_slice.transpose();
 
   }

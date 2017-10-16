@@ -80,6 +80,9 @@ public:
   //Open two files to dump NIS data
   ofstream fRadar_, fLaser_;
 
+  // Device co-variance matrix
+  MatrixXd R_Laser_;
+
   Tools tools;
 
   /**
