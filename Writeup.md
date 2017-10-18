@@ -18,6 +18,15 @@ The goals / steps of this project are the following:
 
 ### Initialization of UKF variables
 
+There are two important parts that need to be calibrated in order to get the prediction working for the sensor values from the object (In this case it is a bi cycle). The two are the process noise variables `std_a_` and `std_yawdd_` & the co variance matrix `P_`.
+
+* First let us discuss the linear acceleration noise `std_a_`. Assume the bi cycle can attain a speed of 10 mph in 5 seconds, then its acceleration is going to be 0.8 m/sec^2. I have tried the acceleration between 0.5 to 1 and it worked fine. Details on the RMSE impact on the changes in std_a_ is discussed in section below. Same assumption is made for the `std_yawdd_` and it is also set between 0.5 to 1.0.
+* Second variable to initialize is covariance matrix `P_`. It needs to be an identity matrix. I have tried with diagonal values to be 1 to some large numbers.
+* Weights for the Sigma points are initialized as given in line # 76 - 84 of ukf.cpp files.
+* Set measurement Co varianve vector R for both Laser and Radar as given in line # 100 -110 of ukf.cpp.
+
+
+
 ### Implementation of Prediction function
 
 ### Implementation of UpdateLidar/Radar function
