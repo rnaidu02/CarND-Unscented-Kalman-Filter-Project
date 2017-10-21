@@ -194,14 +194,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
     }
 
-		// if (pX < leastValue)
-		//pX = tools.SetMinValues(pX);
-		//pY = tools.SetMinValues(pY);
-		/*
-		if (fabs(pY) < MIN_VALUE){
-			pY = LEAST_VALUE;
-		}
-		*/
 
 		//set the state with the initial location and  velocity
 		x_ << pX, pY, v, psi, psi_dot;

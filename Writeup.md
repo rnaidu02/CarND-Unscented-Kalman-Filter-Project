@@ -5,7 +5,7 @@ The goals / steps of this project are the following:
  (`P_`) for the sensor.
 * Implement Prediction function that predicts mean values of data points (`x_`) and state co-variance matrix (`P_`)
 * Implement `Predction` and `UpdateLidar/Radar` functions.
-* Dump the NIS values at each timestep and see if they are within 7.85 most of the time.
+* Dump the NIS values at each timestep and see if they are within 95 percentile most of the time.
 * Make sure the RMSE values for pX, pY, vX and vY are less than .09, .10, .40, .30 respectively.
 
 
@@ -15,6 +15,11 @@ The goals / steps of this project are the following:
 [image2]: ./images/radar_nis_plot.png "NIS values for Radar Data"
 [image3]: ./images/rmse_P_noise.png "RMSE values based on Covariance & Process variables"
 [image4]: ./images/rmse_in_simulator.png "RMSE values"
+[image5]: ./images/lidar_only_nis_plot.png "NIS values with Lidar Only Data"
+[image6]: ./images/radar_only_nis_plot.png "NIS values with  Radar Only Data"
+[image7]: ./images/rmse-in_simulator_inlidar_only.png "RMSE values only with Lidar data"
+[image8]: ./images/rmse-in_simulator_inradar_only.png "RMSE values only with Radar data"
+[image9]: ./images/rmse_in_simulator_ekf.png "RMSE values for EKF"
 
 ### Initialization of UKF variables
 
@@ -56,14 +61,39 @@ The initial values of process noise variables are given as 30, 30 which is very 
 
 ![NIS values for Radar Data][image2]
 
-The NIS values are recorded during the run and plotted as shown in the above pictures. The acceptable values for NIS value should be less than 7.85 (as described in section). The NIS values in both pictures are for most of the time are under 7.85.
+The NIS values are recorded during the run and plotted as shown in the above pictures. The acceptable values for NIS value should be less than `2*stdev` (as described in section).
+* For Radar NIS values the 95 percentile values around 4.5 and as you can see in the picture most of the values are under 4.5.
 
-### RMSE values
+* For Lidar NIS values the 95 percentile values around 3.53 and as you can see in the picture most of the values are under 3.53.
+
+![NIS values for Lidar Only Data][image5]
+The above diagram shows the NIS data for Lidar data only when the Lidar sensor data is used for the Measurement update for both state vector (`x_`) and co-variance matrix (`P_`). Here the 95 percentile data for NIS value is about 4.65 which is higher  than (4.5) the 95 percentile data when both Lidar and Radar sensor data is used.
+
+![NIS values for Radar Only Data][image6]
+The above diagram shows the NIS data for Radar data only when the Radar sensor data is used for the Measurement update for both state vector (`x_`) and co-variance matrix (`P_`). Here the 95 percentile data for NIS value is about 3.62 which is higher  than (3.53) the 95 percentile data when both Lidar and Radar sensor data is used.
+
+By looking at NIS values when only one of the sensor is used or both sensor data is used, it shows that using both sensor data is beneficial when it comes to predicting the next position of the tracking vehicle. I've aslo observed the RMSE values when individual sensor data is used.
+
+###### RMSE values for Lidar Only data
+![RMSE values for Lidar Only data ][image7]
+The above picture shows the RMSE values only with the Lidar data. In this case the RMSE values for x and y are close to values when both sensors are used. This is due to the fact that the Laser measurements has only x and y data and so the Prediction for x and y are close to ground truth.
+
+###### RMSE values for Lidar Only data
+![RMSE values for Radar Only data ][image8]
+The above picture shows the RMSE values only with the Radar data. In this case the RMSE values for vx and vy are close to values when both sensors are used. This is due to the fact that radar ground truth data get data polar co-ordinates and it is easy to calculate velocity using the radial velocity measurement.
+
+### RMSE values with both sensors using UKF
 
 ![RMSE values ][image4]
 The above picture shows the RMSE values at the end of the time step and the plot of predicted values of the location (in green dots) compared to the Lidar and Radar values from the sensor. Based on the picture the predicted location is along the path and coincides with the sensor measurement.
 
-### What can be done next
+### RMSE values with both sensors using EKF
+![RMSE values using EKF ][image9]
+The above picture shows the RMSE values using EKF. The RMSE values using EKF are lesser due to the fact that the prected values in EKF uses sigma points for both Lidar and Radar data to predict and update `x_` and `P_`.
+
+### House keeping things to take care
 * Cleanup the code in Prediction, UpdateLidar/Radar functions.
 * Merge common parts of UpdateLidar and UpdateRadar functions and avoid duplicate code.
-* Observations using only Lida/ Only Radar measurements during the update of state vector and co-variance matrix.
+
+### Next steps
+* Try the Bonus challenge to catch the run away car UKF.
