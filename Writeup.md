@@ -33,11 +33,22 @@ This function predicts the state vector and co-variance matrix with reference to
 The key here is to predict the sigma points and derive state vector from the sigma points and the weights (line # 300 - 350 of ukf.cpp). Similarly use the predicted sigma points data to generate co-variance matrix `P_` (as shown in line # 350 - 368 of ukf.cpp)
 
 ### Implementation of UpdateLidar/Radar function
+The algorithm is relatively is same for both the Lidar and Radar. The only difference is the input data, and the measurement co-variance matrix (`R_Laser`/`R_Radar`).
+
+* As a first step, convert the sigma points identifed in prediction step to the measurement space.
+* Find the difference between predicted sigma points and the state vector. Similarly find the difference between predicted values vs measurement space sigma points to generate Cross correlation matrix (`Tc`) .
+* From `Tc` find Kalman Gain MAtrix (`K`)
+* From `K` update the state vector `x_` and co variance vector `P_`.
+* Also calculate the NIS values (line#461 for Lasar update) and log them into a file to review the values for the whole session.
 
 
 ### Effect of Covariance and Process variables on RMSE values
 
 ![RMSE values based on Covariance & Process variables][image3]
+
+The above table shows the RMSE values for a given set of process noise variables (`std_a_`, `std_yawdd_`) and Co-variance values (`P_`).
+
+The initial values of process noise variables are given as 30, 30 which is very large for a bicycle. I've tried to come up with a number that is reasonable for a bicycle based on the acceleration it can attain in 5 seconds. As described in Initialization section, the acceptable range is between 0.5 to 1.0. I've tried with varying range of values for the noise variables and found that RMSE values are in acceptable range as long as the process noise variables are less than 1.0 no matter what the `P_` values are (as long as the diagonal values are set).
 
 ### NIS values for Lidar and Radar
 
@@ -45,8 +56,14 @@ The key here is to predict the sigma points and derive state vector from the sig
 
 ![NIS values for Radar Data][image2]
 
+The NIS values are recorded during the run and plotted as shown in the above pictures. The acceptable values for NIS value should be less than 7.85 (as described in section). The NIS values in both pictures are for most of the time are under 7.85.
+
 ### RMSE values
 
 ![RMSE values ][image4]
+The above picture shows the RMSE values at the end of the time step and the plot of predicted values of the location (in green dots) compared to the Lidar and Radar values from the sensor. Based on the picture the predicted location is along the path and coincides with the sensor measurement.
 
-### Conclusion
+### What can be done next
+* Cleanup the code in Prediction, UpdateLidar/Radar functions.
+* Merge common parts of UpdateLidar and UpdateRadar functions and avoid duplicate code.
+* Observations using only Lida/ Only Radar measurements during the update of state vector and co-variance matrix.
