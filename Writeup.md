@@ -28,8 +28,12 @@ There are two important parts that need to be calibrated in order to get the pre
 
 
 ### Implementation of Prediction function
+This function predicts the state vector and co-variance matrix with reference to the data from the last time step. It essentially predicts `x_` and `P_` based on the info from the last known information.
+
+The key here is to predict the sigma points and derive state vector from the sigma points and the weights (line # 300 - 350 of ukf.cpp). Similarly use the predicted sigma points data to generate co-variance matrix `P_` (as shown in line # 350 - 368 of ukf.cpp)
 
 ### Implementation of UpdateLidar/Radar function
+
 
 ### Effect of Covariance and Process variables on RMSE values
 

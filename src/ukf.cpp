@@ -225,7 +225,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 	float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;	//dt - expressed in seconds
 	time_us_ = meas_package.timestamp_;
 
-  cout << "Before of Predict" << endl;
+  //cout << "Before of Predict" << endl;
   Prediction(dt);
 
   /**
@@ -261,17 +261,6 @@ void UKF::Prediction(double delta_t) {
 
   //create sigma point matrix
   MatrixXd Xsig = MatrixXd(n_x_, 2 * n_x_ + 1);
-
-  //calculate sigma points ...
-  //set the mean at col(0)
-  /*
-  Xsig.col(0) = x_;
-  //set sigma points as columns of matrix Xsig
-  for (int nColIndex = 0; nColIndex < n_x_; nColIndex++){
-      Xsig.col(nColIndex+1) = x_ + sqrt(lambda_+n_x_) * A.col(nColIndex);
-      Xsig.col(n_x_+nColIndex+1) = x_ - sqrt(lambda_+n_x_) * A.col(nColIndex);
-  }
-  */
 
   //create augmented mean vector
   VectorXd x_aug = VectorXd(n_aug_);
@@ -309,15 +298,12 @@ void UKF::Prediction(double delta_t) {
   }
 
   //Now predict the sigma points
-  //VectorXd x_prev = VectorXd(n_aug_);
-  //VectorXd x_kplus = VectorXd(n_x_);
+
   //predict sigma points
   //avoid division by zero
   //write predicted sigma points into right column
   for (int nColIndex = 0; nColIndex < n_aug_*2+1; nColIndex++){
       //Get each column from the augmented sigma points
-      //VectorXd x_prev = Xsig_aug.col(nColIndex);
-      //VectorXd x_kplus =  x_prev.head(n_x_);
       //Take out the components from the Xsig_aug
       float pX = Xsig_aug(0, nColIndex);
       float pY = Xsig_aug(1, nColIndex);
@@ -361,7 +347,6 @@ void UKF::Prediction(double delta_t) {
 
     }
     //std::cout << "x" << x << std::endl;
-    //predict state mean
 
     //predict state covariance matrix
     P_.fill(0.0);
@@ -383,8 +368,8 @@ void UKF::Prediction(double delta_t) {
 
     }
 
-    cout << "end of update for Predict" << endl;
-    cout << "P_" << P_ << endl;
+    //cout << "end of update for Predict" << endl;
+    //cout << "P_" << P_ << endl;
 
 
 }
@@ -402,7 +387,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
-  cout << "begining of update for Lidar" << endl;
+  //cout << "begining of update for Lidar" << endl;
 
   int n_z = 2;
   //create matrix for sigma points in measurement space
@@ -488,7 +473,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     }
   }
 
-  cout << "end of update for Lidar" << P_ << endl;
+  //cout << "end of update for Lidar" << P_ << endl;
 }
 
 /**
@@ -504,7 +489,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the radar NIS.
   */
-  cout << "begining of update for Radar" << endl;
+  //cout << "begining of update for Radar" << endl;
   int n_z = 3;
   //create matrix for sigma points in measurement space
   MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1);
